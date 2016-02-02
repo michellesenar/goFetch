@@ -16,6 +16,10 @@ class DogSpider(Spider):
     START_URL = 'http://www.animalcenter.org/adoptions/animals.aspx?type=dogs'
     BASE_URL = 'http://www.animalcenter.org/adoptions/'
 
+    def __init__(self, breeds=None, *args, **kwargs):
+        super(DogSpider, self).__init__(*args, **kwargs)
+        self.breeds = breeds
+
     def start_requests(self):
         request = Request(url=self.START_URL, callback=self.parse_main, dont_filter=True)
         yield request
@@ -41,7 +45,8 @@ class DogSpider(Spider):
                 weight_index = ['Weight' in el for el in info].index(True)
                 color_index = ['Color' in el for el in info].index(True)
 
-                new_dog['breed'] = self.strip_html(dog.css('p')[0].extract()).replace('- ', ' ')
+                breed = self.strip_html(dog.css('p')[0].extract()).replace('- ', ' ')
+                new_dog['breed'] = breed
                 new_dog['sex'] = info[sex_index].split(':')[-1]
 
                 days_age = (date.today() - datetime.strptime(info[dob_index].split(':')[-1], '%m/%d/%Y').date()).days
@@ -62,9 +67,9 @@ class DogSpider(Spider):
 
                 url = dog.css('a::attr(href)')[0].extract()
                 indiv_url = urlparse.urljoin(self.BASE_URL, url)
-                yield Request(url=indiv_url, meta={'item': new_dog},
+                if self.breeds is None or (any([b.lower() in breed.lower() for b in self.breeds.split(',')])):
+                    yield Request(url=indiv_url, meta={'item': new_dog},
                               callback=DogSpider.parse_individual, dont_filter=True)
-
     @staticmethod
     def parse_individual(response):
 
